@@ -1,0 +1,93 @@
+services:
+  streamlit_client:
+    build: ./Streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - LOCAL_BASE_URL=http://backend_service:8080
+    secrets:
+      - USERNAME_API
+      - RENDER_DOCKER_BASE_URL
+      - VERCEL_BASE_URL
+
+    depends_on:
+      - backend_service
+
+  backend_service:
+    build: ./Backend_API
+    ports:
+      - "8080:8080"
+    environment:
+      - FLOWER_API_BASE_URL=http://flower_model_service:5001
+    depends_on:
+      - flower_model_service
+    secrets:
+      - RENDER_API_TOKEN
+      - JWT_KEY
+      - JWT_ALGORITHM
+      - PROJECT_ID
+      - PRIVATE_KEY_ID
+      - PRIVATE_KEY
+      - CLIENT_EMAIL
+      - CLIENT_ID
+
+  flower_model_service:
+    build: ./Backend_MLFlow
+    ports:
+      - "5001:5001"
+    environment:
+      - MODEL_TRACKING_URI=http://mlflow_server:5005
+    depends_on:
+      - mlflow_server
+
+  mlflow_server:
+    build: ./MLFlow_Server
+    environment:
+      - MLFLOW_TRACKING_URI=postgresql://mlflow_user:mlflow_password@postgres:5432/mlflow_db
+    ports:
+      - "5005:5005"
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    depends_on:
+      - postgres
+    restart: always
+  
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=mlflow_user
+      - POSTGRES_PASSWORD=mlflow_password
+      - POSTGRES_DB=mlflow_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+
+volumes:
+  mlflow_artifacts:
+  postgres_data:
+
+secrets:
+    USERNAME_API:
+      file: ./Streamlit/secrets/USERNAME_API
+    RENDER_DOCKER_BASE_URL:
+      file: ./Streamlit/secrets/RENDER_DOCKER_BASE_URL
+    VERCEL_BASE_URL:
+      file: ./Streamlit/secrets/VERCEL_BASE_URL
+    RENDER_API_TOKEN:
+      file: ./Backend_API/secrets/RENDER_API_TOKEN
+    JWT_KEY:
+      file: ./Backend_API/secrets/JWT_KEY
+    JWT_ALGORITHM:
+      file: ./Backend_API/secrets/JWT_ALGORITHM
+    PROJECT_ID:
+      file: ./Backend_API/secrets/PROJECT_ID
+    PRIVATE_KEY_ID:
+      file: ./Backend_API/secrets/PRIVATE_KEY_ID
+    PRIVATE_KEY:
+      file: ./Backend_API/secrets/PRIVATE_KEY
+    CLIENT_EMAIL:
+      file: ./Backend_API/secrets/CLIENT_EMAIL
+    CLIENT_ID:
+      file: ./Backend_API/secrets/CLIENT_ID
