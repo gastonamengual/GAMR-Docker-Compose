@@ -1,0 +1,15 @@
+[submodule "client-ui"]
+	path = client-ui
+	url = https://github.com/gastonamengual/GAMR-Client-Streamlit
+[submodule "backend-service-api"]
+	path = backend-service-api
+	url = https://github.com/gastonamengual/GAMR-Backend-Service-Vercel
+[submodule "model-service-hf"]
+	path = model-service-hf
+	url = https://github.com/gastonamengual/GAMR-Model-Registry-HF
+[submodule "model-service-flowers"]
+	path = model-service-flowers
+	url = https://github.com/gastonamengual/GAMR-Model-Registry-MLFlow
+[submodule "mlflow-server"]
+	path = mlflow-server
+	url = https://github.com/gastonamengual/GAMR-MLFlow-Server
