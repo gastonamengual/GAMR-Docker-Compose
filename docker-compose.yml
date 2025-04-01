@@ -1,26 +1,27 @@
 services:
-  streamlit_client:
-    build: ./Streamlit
+  streamlit-client:
+    build: ./client-ui
+    depends_on:
+      - backend-service-api
     ports:
       - "8501:8501"
     environment:
-      - LOCAL_BASE_URL=http://backend_service:8080
+      - LOCAL_BASE_URL=http://backend-service-api:8080
     secrets:
       - USERNAME_API
       - RENDER_DOCKER_BASE_URL
       - VERCEL_BASE_URL
+    networks:
+      - gamr-network
 
+  backend-service-api:
+    build: ./backend-service-api
     depends_on:
-      - backend_service
-
-  backend_service:
-    build: ./Backend_API
+      - flower-model-service
     ports:
       - "8080:8080"
     environment:
-      - FLOWER_API_BASE_URL=http://flower_model_service:5001
-    depends_on:
-      - flower_model_service
+      - FLOWER_API_BASE_URL=http://flower-model-service:5001
     secrets:
       - RENDER_API_TOKEN
       - JWT_KEY
@@ -30,27 +31,34 @@ services:
       - PRIVATE_KEY
       - CLIENT_EMAIL
       - CLIENT_ID
+    networks:
+      - gamr-network
 
-  flower_model_service:
-    build: ./Backend_MLFlow
+  flower-model-service:
+    build: ./model-service-flowers
+    depends_on:
+      - mlflow-server
     ports:
       - "5001:5001"
     environment:
-      - MODEL_TRACKING_URI=http://mlflow_server:5005
-    depends_on:
-      - mlflow_server
+      - MODEL_TRACKING_URI=http://mlflow-server:5005
+    networks:
+      - gamr-network
 
-  mlflow_server:
-    build: ./MLFlow_Server
+  mlflow-server:
+    build: ./mlflow-server
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       - MLFLOW_TRACKING_URI=postgresql://mlflow_user:mlflow_password@postgres:5432/mlflow_db
     ports:
       - "5005:5005"
     volumes:
-      - mlflow_artifacts:/mlflow/artifacts
-    depends_on:
-      - postgres
+      - mlflow-artifacts:/mlflow/artifacts
     restart: always
+    networks:
+      - gamr-network
   
   postgres:
     image: postgres:17
@@ -59,35 +67,76 @@ services:
       - POSTGRES_PASSWORD=mlflow_password
       - POSTGRES_DB=mlflow_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d mlflow_db -U mlflow_user"]
+      interval: 10s
+      retries: 5
     ports:
       - "5432:5432"
     restart: always
+    networks:
+      - gamr-network
+
+  prometheus:
+    container_name: prometheus
+    depends_on:
+      - streamlit-client
+      - backend-service-api
+      - flower-model-service
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - gamr-network
+
+  grafana:
+    depends_on:
+      - prometheus
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - gamr-network
+
+networks:
+  gamr-network:
+    driver: bridge
 
 volumes:
-  mlflow_artifacts:
-  postgres_data:
+  mlflow-artifacts:
+  postgres-data:
+  grafana-data:
 
 secrets:
     USERNAME_API:
-      file: ./Streamlit/secrets/USERNAME_API
+      file: ./client-ui/secrets/USERNAME_API
     RENDER_DOCKER_BASE_URL:
-      file: ./Streamlit/secrets/RENDER_DOCKER_BASE_URL
+      file: ./client-ui/secrets/RENDER_DOCKER_BASE_URL
     VERCEL_BASE_URL:
-      file: ./Streamlit/secrets/VERCEL_BASE_URL
+      file: ./client-ui/secrets/VERCEL_BASE_URL
     RENDER_API_TOKEN:
-      file: ./Backend_API/secrets/RENDER_API_TOKEN
+      file: ./backend-service-api/secrets/RENDER_API_TOKEN
     JWT_KEY:
-      file: ./Backend_API/secrets/JWT_KEY
+      file: ./backend-service-api/secrets/JWT_KEY
     JWT_ALGORITHM:
-      file: ./Backend_API/secrets/JWT_ALGORITHM
+      file: ./backend-service-api/secrets/JWT_ALGORITHM
     PROJECT_ID:
-      file: ./Backend_API/secrets/PROJECT_ID
+      file: ./backend-service-api/secrets/PROJECT_ID
     PRIVATE_KEY_ID:
-      file: ./Backend_API/secrets/PRIVATE_KEY_ID
+      file: ./backend-service-api/secrets/PRIVATE_KEY_ID
     PRIVATE_KEY:
-      file: ./Backend_API/secrets/PRIVATE_KEY
+      file: ./backend-service-api/secrets/PRIVATE_KEY
     CLIENT_EMAIL:
-      file: ./Backend_API/secrets/CLIENT_EMAIL
+      file: ./backend-service-api/secrets/CLIENT_EMAIL
     CLIENT_ID:
-      file: ./Backend_API/secrets/CLIENT_ID
+      file: ./backend-service-api/secrets/CLIENT_ID

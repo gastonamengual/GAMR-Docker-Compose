@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "backend-service-api"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["backend-service-api:8080"]
+
+  - job_name: "streamlit-client"
+    metrics_path: "/_stcore/metrics"
+    static_configs:
+      - targets: ["streamlit-client:8501"]
+
+  - job_name: "flower-model-service"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["flower-model-service:5000"]
