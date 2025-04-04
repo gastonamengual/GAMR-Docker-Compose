@@ -1,3 +1,5 @@
+## Access the deployed APP here! https://gamr-image-recognition.streamlit.app
+
 This repository is part of the GAMR MLOps project and handles the deployment of the architecture using Docker Compose. It also includes an MLflow tracking server with a PostgreSQL backend and artifact storage.
 
 ## Architecture
